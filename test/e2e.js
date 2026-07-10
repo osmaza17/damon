@@ -63,6 +63,51 @@ const assert = (cond, msg) => { if (!cond) throw new Error('ASSERT: ' + msg); };
   const titles = await page.$$eval('.tab .title', (els) => els.map((e) => e.textContent));
   assert(titles.includes('Renamed session'), 'tab renamed in place');
 
+  // heartbeat dot present on tabs
+  assert((await page.$$eval('.tab .dot', (e) => e.length)) >= 1, 'tab status dots rendered');
+
+  // toolbar: model menu lists the 4 claude models
+  await page.click('#btn-model');
+  await page.waitForTimeout(200);
+  assert((await page.$$eval('.popup-item', (e) => e.length)) === 4, 'model menu has 4 entries');
+  await page.keyboard.press('Escape');
+
+  // auto-switch menu toggles the setting
+  await page.click('#btn-autoswitch');
+  await page.waitForTimeout(200);
+  await page.click('.popup-item'); // "Auto-switch enabled" toggle
+  await page.waitForTimeout(400);
+  assert(await page.$eval('#btn-autoswitch', (e) => e.classList.contains('on')), 'auto-switch toggled on');
+  await page.click('#btn-autoswitch');
+  await page.waitForTimeout(200);
+  await page.click('.popup-item'); // toggle back off
+  await page.waitForTimeout(200);
+
+  // history drawer opens (empty on a fresh profile)
+  await page.click('#btn-history');
+  await page.waitForTimeout(200);
+  assert(await page.$eval('#history-drawer', (e) => !e.classList.contains('hidden')), 'history drawer opens');
+  await page.click('#btn-history');
+
+  // settings dialog opens, shows per-account rows (read from ~/.claude), saves
+  await page.click('#btn-settings');
+  await page.waitForTimeout(400);
+  assert(await page.$eval('#settings-dialog', (e) => e.open), 'settings dialog opens');
+  await page.fill('#set-fontsize', '15');
+  await page.click('#settings-dialog button[value="ok"]');
+  await page.waitForTimeout(400);
+  assert((await page.$eval('#zoom-label', (e) => e.textContent)) === '15px', 'font size saved to toolbar');
+
+  // zoom buttons
+  await page.click('#btn-zoom-in');
+  await page.waitForTimeout(200);
+  assert((await page.$eval('#zoom-label', (e) => e.textContent)) === '16px', 'zoom + works');
+
+  // account button shows the live account (read-only; do NOT open/click the popup)
+  const accText = await page.$eval('#btn-account', (e) => e.textContent);
+  assert(accText.length > 0, 'account button has a label');
+
+  await page.screenshot({ path: shot('final') });
   await app.close();
   fs.rmSync(TMP, { recursive: true, force: true });
   console.log('E2E OK');

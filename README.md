@@ -37,8 +37,37 @@ Requirements: Windows 10/11, [Node.js](https://nodejs.org) 20+, git, and the CLI
 
 - **Ctrl+T** — new tab. A model picker appears: Claude, Codex/GPT, Kimi K2, MiniMax, GLM, or a custom OpenRouter model id.
 - **Ctrl+I** — rename the current session in place (double-click the tab also works).
-- **Ctrl+W** — close the current tab (kills its terminal).
+- **Ctrl+W** — close the current tab (kills its terminal). **Ctrl+Shift+Y** — reopen the last closed session, with its conversation.
 - **Files** (top right) — the agent's file drawer: view and edit `CLAUDE.md`, `agent.md`, `user.md`, `memory.md`.
+
+### Tab status dots
+
+Each tab shows what its session is doing: **green** idle/done · **yellow** Claude is working · **red** waiting for your answer (permission/plan prompt; blinks when the tab is in the background) or usage limit reached · **grey** the CLI exited.
+
+Tabs support pinning and drag-reorder (right-click for pin/rename/close). Titles are set automatically from the terminal title or your first prompt; a manual rename always wins.
+
+### Toolbar
+
+- **Model** — switches the live Claude session with `/model` (Haiku/Sonnet/Opus/Fable) and auto-confirms the prompt.
+- **Account** — the account pool. Shows the active account and its live 5h usage %. The menu lists every saved account with usage (colored), lets you switch (hot-swap, no restart — Claude picks up the new credentials on its next message), save the current account, open claude.ai in that account's browser to re-login, exclude an account from auto-switch, or delete its snapshot. Credentials are snapshotted under `~/.claude/cch-accounts/` (never committed).
+- **/skill** — inject any skill from `~/.claude/skills` into the session.
+- **A⇄ (auto-switch)** — automatic account rotation. *Threshold* mode switches when the active account passes a fixed 5h-usage %, *rotate* switches every +Δ%. A hard 90% ceiling always applies (with a least-used fallback), and no switch ever lands on an account above 95% weekly usage. "Diagnose" explains the last decision.
+- **Tokens** — launches the bundled token-stats dashboard (Python, opens in your browser at `127.0.0.1:8080`).
+- **Export** — writes the session's last reply or whole conversation as markdown into the agent repo.
+- **− px +** — terminal font zoom (Ctrl+wheel works too).
+- **History** — recently closed sessions (max 25) across all agents; click to reopen with full conversation (`--resume`).
+- **Reload** — restarts the CLI *keeping the conversation* (same session id). **Restart** — fresh session.
+- **⚙ Settings** — extra Claude args, startup commands, font size, bell notifications, usage probe toggle, Python path, per-account **forbidden time windows** (hard-stop: Claude is interrupted and the pool jumps to another account) and per-account login browser.
+
+Open tabs are persisted: closing the app and reopening restores each agent's sessions (lazily, when you visit the agent), resuming their conversations.
+
+### Terminal niceties
+
+Paste an image from the clipboard (Ctrl+V) and it lands as a `@path` mention (temp PNG). Drop a file onto the terminal for the same. Ctrl+Enter/Shift+Enter insert a newline; Ctrl+Z / Ctrl+Shift+Z are undo/redo in the Claude input.
+
+## Account pooling — how it works
+
+Claude Code stores its auth in `~/.claude/.credentials.json` + `~/.claude.json`. Damon snapshots both per account and switches by writing them back atomically; a **live** Claude session re-reads credentials on its next request, so switching never restarts anything. Usage %s come from Anthropic's rate-limit response headers via a minimal 1-token probe per account (every 3 min, toggleable), and OAuth tokens are refreshed just before they expire so parked accounts stay alive.
 
 ## Agent files and memory
 
@@ -68,8 +97,9 @@ Produces `dist/ADE Setup <version>.exe` (NSIS, via electron-builder). Unsigned b
 
 ## Data locations
 
-- Teams/agents state and photos: `%APPDATA%/damon/`
+- Teams/agents state, settings and photos: `%APPDATA%/damon/`
 - Agent repos: `%USERPROFILE%\.ade\`
+- Account snapshots: `%USERPROFILE%\.claude\cch-accounts\` (created by the account pool; contains OAuth tokens — treat like passwords)
 - OpenRouter key: encrypted inside the state file (never committed anywhere).
 
 ## License

@@ -10,7 +10,7 @@
 <body>
   <div id="app">
     <aside id="sidebar">
-      <div id="brand">DAMON<span>ADE</span></div>
+      <div id="brand">Damon<span>ADE</span></div>
       <div id="teams"></div>
       <button id="add-team" class="ghost-btn">+ New team</button>
     </aside>
@@ -20,7 +20,24 @@
         <div id="tabs"></div>
         <button id="new-tab" class="icon-btn" title="New tab (Ctrl+T)">+</button>
         <div class="spacer"></div>
-        <button id="toggle-drawer" class="icon-btn" title="Agent files">Files</button>
+        <div id="toolbar">
+          <button id="btn-model" class="tool-btn" title="Switch model (/model)"></button>
+          <button id="btn-account" class="tool-btn" title="Accounts"></button>
+          <button id="btn-skill" class="tool-btn" title="Run a skill">/skill</button>
+          <button id="btn-autoswitch" class="tool-btn" title="Auto-switch accounts">A&#8644;</button>
+          <button id="btn-dashboard" class="tool-btn" title="Token stats dashboard">Tokens</button>
+          <button id="btn-export" class="tool-btn" title="Export conversation to the agent repo">Export</button>
+          <span class="tool-sep"></span>
+          <button id="btn-zoom-out" class="tool-btn narrow" title="Smaller font">&#8722;</button>
+          <span id="zoom-label" class="tool-label"></span>
+          <button id="btn-zoom-in" class="tool-btn narrow" title="Larger font">+</button>
+          <span class="tool-sep"></span>
+          <button id="btn-history" class="tool-btn" title="Reopen a closed session (Ctrl+Shift+Y)">&#8635; History</button>
+          <button id="btn-reload" class="tool-btn" title="Reload this session (same conversation)">Reload</button>
+          <button id="btn-restart" class="tool-btn" title="Restart: close and start a fresh session">Restart</button>
+          <button id="btn-settings" class="tool-btn narrow" title="Settings">&#9881;</button>
+          <button id="toggle-drawer" class="tool-btn" title="Agent files">Files</button>
+        </div>
       </div>
       <div id="content">
         <div id="terminals"></div>
@@ -41,6 +58,7 @@
             <button id="empty-action"></button>
           </div>
         </div>
+        <div id="history-drawer" class="hidden"></div>
       </div>
     </main>
 
@@ -54,6 +72,9 @@
       </div>
     </aside>
   </div>
+
+  <div id="popup-layer"></div>
+  <div id="toasts"></div>
 
   <dialog id="team-dialog">
     <form method="dialog" class="modal-form">
@@ -91,8 +112,33 @@
     </form>
   </dialog>
 
+  <dialog id="settings-dialog">
+    <form method="dialog" class="modal-form" id="settings-form">
+      <h2>Settings</h2>
+      <div class="settings-grid">
+        <label>Extra Claude args <input id="set-args" autocomplete="off" placeholder="--verbose" /></label>
+        <label>Startup commands (one per line, sent to every new Claude session)
+          <textarea id="set-startup" rows="3" spellcheck="false"></textarea></label>
+        <label>Font size <input id="set-fontsize" type="number" min="8" max="40" /></label>
+        <label class="radio"><input id="set-bell" type="checkbox" /> Notify on terminal bell</label>
+        <label class="radio"><input id="set-probe" type="checkbox" /> Probe live usage % via the Anthropic API</label>
+        <label>Python path (token dashboard; empty = autodetect) <input id="set-python" autocomplete="off" /></label>
+        <label>Usage scrape regex (empty = default) <input id="set-usagere" autocomplete="off" /></label>
+        <label>Default browser for account logins
+          <select id="set-browser"></select></label>
+      </div>
+      <div id="settings-accounts"></div>
+      <div class="modal-actions">
+        <button value="cancel" class="ghost-btn">Cancel</button>
+        <button value="ok">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="../node_modules/@xterm/xterm/lib/xterm.js"></script>
   <script src="../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="../node_modules/@xterm/addon-unicode11/lib/addon-unicode11.js"></script>
+  <script src="../node_modules/@xterm/addon-webgl/lib/addon-webgl.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
