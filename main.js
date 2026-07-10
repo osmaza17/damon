@@ -6,7 +6,7 @@ const { execFile } = require('node:child_process');
 const pty = require('@lydell/node-pty');
 const tpl = require('./templates');
 
-const ADE_HOME = path.join(os.homedir(), '.ade');       // agent repos live here
+const ADE_HOME = process.env.DAMON_ADE_HOME || path.join(os.homedir(), '.ade'); // agent repos live here
 let stateFile;                                          // userData/state.json
 let photosDir;                                          // userData/photos
 let win;
@@ -222,6 +222,8 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
+
+if (process.env.DAMON_USER_DATA) app.setPath('userData', process.env.DAMON_USER_DATA);
 
 app.whenReady().then(() => {
   stateFile = path.join(app.getPath('userData'), 'state.json');
