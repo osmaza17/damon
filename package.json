@@ -1,0 +1,40 @@
+{
+  "name": "damon",
+  "productName": "ADE",
+  "version": "0.1.0",
+  "description": "Damon - Agentic Development Environment: run every AI agent CLI (Claude Code, Codex, open-source models via OpenRouter) from a single desktop window.",
+  "main": "main.js",
+  "author": "Oscar",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.oscar.damon",
+    "productName": "ADE",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "templates.js",
+      "renderer/**",
+      "package.json"
+    ]
+  },
+  "dependencies": {
+    "@lydell/node-pty": "^1.2.0-beta.12",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0"
+  },
+  "devDependencies": {
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3"
+  }
+}

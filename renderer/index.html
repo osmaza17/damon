@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file:; style-src 'self' 'unsafe-inline'" />
+  <title>Damon</title>
+  <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div id="brand">DAMON<span>ADE</span></div>
+      <div id="teams"></div>
+      <button id="add-team" class="ghost-btn">+ New team</button>
+    </aside>
+
+    <main id="main">
+      <div id="tabbar">
+        <div id="tabs"></div>
+        <button id="new-tab" class="icon-btn" title="New tab (Ctrl+T)">+</button>
+        <div class="spacer"></div>
+        <button id="toggle-drawer" class="icon-btn" title="Agent files">Files</button>
+      </div>
+      <div id="content">
+        <div id="terminals"></div>
+        <div id="picker" class="hidden">
+          <h2>Choose a model</h2>
+          <p class="muted">Claude and Codex run on your subscriptions. Open-source models run through OpenRouter.</p>
+          <div id="model-list"></div>
+          <form id="or-key-form" class="hidden">
+            <p>Enter your OpenRouter API key (stored encrypted on this machine):</p>
+            <input id="or-key-input" type="password" placeholder="sk-or-..." autocomplete="off" />
+            <button type="submit">Save and launch</button>
+          </form>
+        </div>
+        <div id="empty" class="hidden">
+          <div id="empty-card">
+            <h1 id="empty-title"></h1>
+            <p id="empty-sub" class="muted"></p>
+            <button id="empty-action"></button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <aside id="drawer" class="hidden">
+      <div id="drawer-head">Agent files</div>
+      <ul id="file-list"></ul>
+      <div id="file-view" class="hidden">
+        <div id="file-name" class="muted"></div>
+        <textarea id="file-content" spellcheck="false"></textarea>
+        <button id="file-save">Save</button>
+      </div>
+    </aside>
+  </div>
+
+  <dialog id="team-dialog">
+    <form method="dialog" class="modal-form">
+      <h2>New team</h2>
+      <label>Name <input id="team-name" required autocomplete="off" /></label>
+      <div class="photo-row">
+        <div id="team-photo-preview" class="avatar large"></div>
+        <button type="button" id="team-photo-btn" class="ghost-btn">Choose photo</button>
+      </div>
+      <div class="modal-actions">
+        <button value="cancel" class="ghost-btn">Cancel</button>
+        <button id="team-create" value="ok">Create team</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="agent-dialog">
+    <form method="dialog" class="modal-form">
+      <h2>New agent</h2>
+      <label>Name <input id="agent-name" required autocomplete="off" /></label>
+      <div class="photo-row">
+        <div id="agent-photo-preview" class="avatar large"></div>
+        <button type="button" id="agent-photo-btn" class="ghost-btn">Choose photo</button>
+      </div>
+      <fieldset>
+        <legend>Workspace</legend>
+        <label class="radio"><input type="radio" name="repo-mode" value="new" checked /> New empty repo (created under ~/.ade)</label>
+        <label class="radio"><input type="radio" name="repo-mode" value="clone" /> Clone an existing GitHub repo</label>
+        <input id="agent-repo-url" placeholder="https://github.com/user/repo.git" class="hidden" autocomplete="off" />
+      </fieldset>
+      <div class="modal-actions">
+        <button value="cancel" class="ghost-btn">Cancel</button>
+        <button id="agent-create" value="ok">Create agent</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="../node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
