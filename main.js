@@ -186,10 +186,12 @@ ipcMain.handle('pty:create', (_e, { cwd, runtime, modelId, cols, rows }) => {
     return { error: String(e.message) };
   }
   ptys.set(id, proc);
-  proc.onData((data) => win && win.webContents.send('pty:data', { id, data }));
+  // window may already be destroyed while ptys drain their last output on quit
+  const send = (ch, msg) => { if (win && !win.isDestroyed()) win.webContents.send(ch, msg); };
+  proc.onData((data) => send('pty:data', { id, data }));
   proc.onExit(({ exitCode }) => {
     ptys.delete(id);
-    win && win.webContents.send('pty:exit', { id, exitCode });
+    send('pty:exit', { id, exitCode });
   });
   return { id };
 });

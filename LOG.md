@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-07-10 — Fix: crash "Object has been destroyed" al cerrar la app
+
+Al cerrar la ventana con sesiones abiertas saltaba un diálogo de error del main process. Causa raíz: los PTY siguen emitiendo datos un instante después de destruirse la BrowserWindow, y los callbacks `onData`/`onExit` llamaban a `win.webContents.send()` sobre la ventana destruida. Fix: helper `send()` compartido que comprueba `!win.isDestroyed()` antes de enviar (main.js). Verificado con el e2e (cierra la app con un Claude vivo, que es justo la ruta del crash).
+
 ## 2026-07-10 — v0.1.0: full build in one session
 
 Recreated the "Damon" ADE from the YouTube walkthrough, adapted to Windows, built from scratch (decision: not cloning Superset — uncertain which repo it is, and a fresh Electron app avoids auditing a macOS-oriented codebase).
