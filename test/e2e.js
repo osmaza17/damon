@@ -107,6 +107,10 @@ const assert = (cond, msg) => { if (!cond) throw new Error('ASSERT: ' + msg); };
   const accText = await page.$eval('#btn-account', (e) => e.textContent);
   assert(accText.length > 0, 'account button has a label');
 
+  // floating export buttons + remote-control toggle are present
+  assert((await page.$$eval('#export-fab .fab-btn', (e) => e.length)) === 2, 'export fab has 2 buttons');
+  assert(await page.$('#btn-remote'), 'remote-control button present');
+
   await page.screenshot({ path: shot('final') });
   await app.close();
   fs.rmSync(TMP, { recursive: true, force: true });

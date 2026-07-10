@@ -16,31 +16,40 @@
     </aside>
 
     <main id="main">
-      <div id="tabbar">
-        <div id="tabs"></div>
-        <button id="new-tab" class="icon-btn" title="New tab (Ctrl+T)">+</button>
-        <div class="spacer"></div>
+      <div id="header">
+        <div id="tabstrip">
+          <div id="tabs"></div>
+          <button id="new-tab" class="icon-btn" title="New tab (Ctrl+T)">+</button>
+        </div>
         <div id="toolbar">
           <button id="btn-model" class="tool-btn" title="Switch model (/model)"></button>
           <button id="btn-account" class="tool-btn" title="Accounts"></button>
           <button id="btn-skill" class="tool-btn" title="Run a skill">/skill</button>
+          <button id="btn-remote" class="tool-btn" title="Remote control (Ctrl+R)">&#128241;</button>
           <button id="btn-autoswitch" class="tool-btn" title="Auto-switch accounts">A&#8644;</button>
           <button id="btn-dashboard" class="tool-btn" title="Token stats dashboard">Tokens</button>
-          <button id="btn-export" class="tool-btn" title="Export conversation to the agent repo">Export</button>
-          <span class="tool-sep"></span>
+          <div class="spacer"></div>
           <button id="btn-zoom-out" class="tool-btn narrow" title="Smaller font">&#8722;</button>
           <span id="zoom-label" class="tool-label"></span>
           <button id="btn-zoom-in" class="tool-btn narrow" title="Larger font">+</button>
           <span class="tool-sep"></span>
+          <button id="btn-settings" class="tool-btn narrow" title="Settings">&#9881;</button>
           <button id="btn-history" class="tool-btn" title="Reopen a closed session (Ctrl+Shift+Y)">&#8635; History</button>
           <button id="btn-reload" class="tool-btn" title="Reload this session (same conversation)">Reload</button>
           <button id="btn-restart" class="tool-btn" title="Restart: close and start a fresh session">Restart</button>
-          <button id="btn-settings" class="tool-btn narrow" title="Settings">&#9881;</button>
           <button id="toggle-drawer" class="tool-btn" title="Agent files">Files</button>
         </div>
       </div>
       <div id="content">
         <div id="terminals"></div>
+        <div id="export-fab">
+          <button id="fab-export-last" class="fab-btn" title="Save Claude's last message as .md in the agent repo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+          </button>
+          <button id="fab-export-full" class="fab-btn" title="Save the whole conversation as .md in the agent repo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3a2 2 0 0 1-2-2V2"/><path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l5 5v9a2 2 0 0 1-2 2Z"/><path d="M3 7.6v12.8A1.6 1.6 0 0 0 4.6 22h9.8"/></svg>
+          </button>
+        </div>
         <div id="picker" class="hidden">
           <h2>Choose a model</h2>
           <p class="muted">Claude and Codex run on your subscriptions. Open-source models run through OpenRouter.</p>

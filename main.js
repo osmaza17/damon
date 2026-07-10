@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, safeStorage, shell, clipboard, Notification } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, safeStorage, shell, clipboard, Notification } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -80,9 +80,13 @@ ipcMain.handle('state:save', (_e, { teams, agents }) => {
 
 ipcMain.handle('settings:get', () => settings);
 ipcMain.handle('settings:set', (_e, patch) => {
+  const enabling = patch.autoSwitch === true && !settings.autoSwitch;
   Object.assign(settings, patch);
   persistSettings();
   accounts.invalidateAccountCaches();
+  // Turning auto-switch on warms every account right away (fresh %s + token
+  // keep-alive) instead of waiting for the next 3-min tick — plugin behavior.
+  if (enabling) accounts.refreshUsage({ refreshTokens: true });
 });
 
 ipcMain.handle('photo:pick', async () => {
@@ -269,6 +273,8 @@ ipcMain.handle('skills:list', () => {
   } catch { return []; }
 });
 
+ipcMain.handle('skills:open-folder', () => shell.openPath(path.join(os.homedir(), '.claude', 'skills')));
+
 // ---------- ipc: clipboard image (paste screenshot as @path) ----------
 
 const PASTE_DIR = path.join(os.tmpdir(), 'damon-paste');
@@ -429,6 +435,11 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
+// No default menu: its hidden accelerators (Ctrl+R reload, Ctrl+W close) would
+// hijack the app's own shortcuts (remote control, close tab) and a stray
+// Ctrl+R would reload the renderer over live sessions.
+Menu.setApplicationMenu(null);
+
 if (process.env.DAMON_USER_DATA) app.setPath('userData', process.env.DAMON_USER_DATA);
 
 app.whenReady().then(() => {
@@ -440,7 +451,7 @@ app.whenReady().then(() => {
     saveSettings: persistSettings,
     notify: (msg) => {
       send('notify', msg);
-      if (win && !win.isFocused() && Notification.isSupported()) {
+      if (win && !win.isDestroyed() && !win.isFocused() && Notification.isSupported()) {
         new Notification({ title: 'Damon', body: msg }).show();
       }
     },

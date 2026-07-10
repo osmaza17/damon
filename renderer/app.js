@@ -47,16 +47,30 @@ const MODEL_CONFIRM_RE = /Switch model\?|Yes, switch to/i;
 
 const MIN_FONT = 8, MAX_FONT = 40;
 
-// 16 ANSI colours + surface theme for the terminals (Obsidian-dark flavored).
-const TERM_THEME = {
-  background: '#1e1e1e', foreground: '#dadada', cursor: '#a88bfa',
-  selectionBackground: '#3f3f52',
+// 16 ANSI colours (plugin's dark palette) + surfaces read from the Obsidian
+// CSS variables in style.css — same architecture as the plugin's termTheme().
+const ANSI_DARK = {
   black: '#241B2C', red: '#FF6B6B', green: '#6BCF7F', yellow: '#FFD93D',
   blue: '#4ECDC4', magenta: '#B197FC', cyan: '#4ECDC4', white: '#F3ECF7',
   brightBlack: '#857693', brightRed: '#FFB4B4', brightGreen: '#B4E5BD',
   brightYellow: '#FFEC99', brightBlue: '#A8E6E0', brightMagenta: '#D6C5FF',
   brightCyan: '#A8E6E0', brightWhite: '#FFFDF5',
 };
+function termTheme() {
+  const s = getComputedStyle(document.body);
+  const v = (name, fb) => s.getPropertyValue(name).trim() || fb;
+  const bg = v('--background-primary', '#262a39');
+  const fg = v('--text-normal', '#d3d5de');
+  return {
+    ...ANSI_DARK,
+    background: bg,
+    foreground: fg,
+    cursor: v('--text-accent', '#89a7ff'),
+    cursorAccent: bg,
+    selectionBackground: v('--text-selection', 'rgba(88,121,253,0.4)'),
+    selectionForeground: fg,
+  };
+}
 
 /* ------------------------------------------------------------------- state */
 
@@ -204,6 +218,7 @@ function newTabObj(agentId, extra = {}) {
     scanBuf: '',
     promptBuf: '', firstPromptDone: false,
     hadActivity: false,               // true once the conversation has content (drives --resume)
+    remoteOn: false,
     modelConfirmUntil: 0,
     restorable: false,                // stub restored from openSessions, pty not started yet
     resumeNext: false,
@@ -346,7 +361,7 @@ function makeTerminal(tab) {
   const term = new Terminal({
     fontFamily: '"JetBrains Mono", "Cascadia Mono", Consolas, monospace',
     fontSize: settings.fontSize || 14,
-    theme: TERM_THEME,
+    theme: termTheme(),
     cursorBlink: true,
     cursorStyle: 'block',
     scrollback: 10000,
@@ -366,11 +381,28 @@ function makeTerminal(tab) {
     // App-level shortcuts bubble past xterm.
     if (e.ctrlKey && !e.shiftKey && ['t', 'i', 'w'].includes(k)) return false;
     if (e.ctrlKey && e.shiftKey && k === 'y') return false;
-    // Zoom.
+    // Zoom (Ctrl+0 resets to the default size, like the plugin).
     if (e.ctrlKey && (k === '+' || k === '=' )) { zoomBy(1); return false; }
     if (e.ctrlKey && k === '-') { zoomBy(-1); return false; }
-    // Smart paste (image in clipboard -> temp PNG path as @mention).
+    if (e.ctrlKey && k === '0') { zoomBy(14 - (settings.fontSize || 14)); return false; }
+    // Remote control toggle: bubble to the document handler (like Ctrl+T/W).
+    if (e.ctrlKey && !e.shiftKey && k === 'r') return false;
+    // Copy: Ctrl+C only when there is a selection (otherwise it's SIGINT for
+    // the pty); Ctrl+Shift+C always copies.
+    if (e.ctrlKey && k === 'c' && (e.shiftKey || tab.term.hasSelection())) {
+      if (tab.term.hasSelection()) {
+        navigator.clipboard.writeText(tab.term.getSelection());
+        tab.term.clearSelection();
+      }
+      return false;
+    }
+    // Smart paste (image in clipboard -> temp PNG path as @mention);
+    // Ctrl+Shift+V forces plain text.
     if (e.ctrlKey && !e.shiftKey && k === 'v') { pasteSmart(tab); return false; }
+    if (e.ctrlKey && e.shiftKey && k === 'v') {
+      navigator.clipboard.readText().then((t) => t && tab.term.paste(t));
+      return false;
+    }
     // Multiline input: Ctrl/Shift+Enter inserts a literal newline.
     if ((e.ctrlKey || e.shiftKey) && e.key === 'Enter') {
       if (tab.ptyId != null) window.damon.ptyWrite(tab.ptyId, '\n');
@@ -382,6 +414,15 @@ function makeTerminal(tab) {
       return false;
     }
     return true;
+  });
+
+  // Right click: copy when there is a selection, paste otherwise (plugin).
+  host.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    if (tab.term.hasSelection()) {
+      navigator.clipboard.writeText(tab.term.getSelection());
+      tab.term.clearSelection();
+    } else pasteSmart(tab);
   });
 
   host.addEventListener('wheel', (e) => {
@@ -495,6 +536,7 @@ window.damon.onPtyExit(({ id, exitCode }) => {
   if (!tab) return;
   byPty.delete(id);
   tab.ptyId = null;
+  tab.remoteOn = false;
   setTabState(tab, 'exited');
   tab.term.write(`\r\n\x1b[90m[session ended, exit code ${exitCode}]\x1b[0m\r\n`);
 });
@@ -516,6 +558,7 @@ function reloadTab(tab) {
   tab.limitLatched = false;
   tab.scanBuf = '';
   tab.state = 'idle';
+  tab.remoteOn = false;
   tab.term.reset();
   launchModel(tab.model, { tab, resume });
 }
@@ -615,23 +658,40 @@ function historyRelTime(ts) {
   return Math.round(d / 86400000) + ' d ago';
 }
 
+// ChatGPT-style drawer (plugin): a sidebar slides in from the left OVER the
+// conversation; the dimmed backdrop closes it on click (and Escape).
 function toggleHistoryDrawer() {
   const el = $('history-drawer');
   if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
   el.innerHTML = '';
-  const head = document.createElement('div');
-  head.className = 'history-head';
-  head.textContent = 'Recently closed sessions';
-  el.appendChild(head);
+  el.onmousedown = (e) => { if (e.target === el) el.classList.add('hidden'); };
+  const side = document.createElement('div');
+  side.className = 'hist-sidebar';
+  el.appendChild(side);
+  const bar = document.createElement('div');
+  bar.className = 'hist-bar';
+  const barTitle = document.createElement('div');
+  barTitle.className = 'hist-title';
+  barTitle.textContent = 'Session history';
+  const closeBtn = document.createElement('div');
+  closeBtn.className = 'hist-close';
+  closeBtn.textContent = '×';
+  closeBtn.onclick = () => el.classList.add('hidden');
+  bar.appendChild(barTitle);
+  bar.appendChild(closeBtn);
+  side.appendChild(bar);
   const list = settings.closedSessions || [];
   if (!list.length) {
     const p = document.createElement('div');
-    p.className = 'muted history-empty';
+    p.className = 'hist-empty';
     p.textContent = 'Nothing here yet — closed sessions land in this list.';
-    el.appendChild(p);
+    side.appendChild(p);
     return;
   }
+  const listEl = document.createElement('div');
+  listEl.className = 'hist-list';
+  side.appendChild(listEl);
   for (const info of list) {
     const row = document.createElement('div');
     row.className = 'history-row';
@@ -658,9 +718,12 @@ function toggleHistoryDrawer() {
     row.appendChild(txt);
     row.appendChild(del);
     row.onclick = () => { el.classList.add('hidden'); reopenClosed(info); };
-    el.appendChild(row);
+    listEl.appendChild(row);
   }
 }
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') $('history-drawer').classList.add('hidden');
+});
 
 /* --------------------------------------------------------------- toolbar */
 
@@ -686,6 +749,7 @@ function refreshToolbar() {
   const cur = accountsCache.find((a) => a.current);
   $('btn-account').style.color = usageColor(cur?.usage?.pct5h) || '';
   $('btn-autoswitch').classList.toggle('on', !!settings.autoSwitch);
+  $('btn-remote').classList.toggle('on', !!activeTab()?.remoteOn);
   $('btn-autoswitch').title = settings.autoSwitch
     ? `Auto-switch ON (${settings.autoSwitchMode} ${settings.autoSwitchMode === 'rotate' ? '+' + settings.autoSwitchDelta : settings.autoSwitchThreshold}%)`
     : 'Auto-switch accounts (off)';
@@ -716,7 +780,6 @@ $('btn-model').onclick = () => openMenu($('btn-model'), (menu) => {
 $('btn-skill').onclick = async () => {
   if (!skillsCache) skillsCache = await window.damon.listSkills();
   openMenu($('btn-skill'), (menu) => {
-    if (!skillsCache.length) { menuItem(menu, 'No skills in ~/.claude/skills', () => {}); return; }
     for (const sk of skillsCache) {
       menuItem(menu, '/' + sk, () => {
         const tab = activeTab();
@@ -726,6 +789,11 @@ $('btn-skill').onclick = async () => {
         }
       });
     }
+    if (!skillsCache.length) menuItem(menu, 'No skills in ~/.claude/skills', () => {});
+    const sep = document.createElement('div');
+    sep.className = 'popup-sep';
+    menu.appendChild(sep);
+    menuItem(menu, 'Open skills folder', () => window.damon.openSkillsFolder());
   });
 };
 
@@ -736,11 +804,20 @@ async function openAccountsMenu() {
     menu.classList.add('accounts');
     for (const a of accountsCache) {
       const row = document.createElement('div');
-      row.className = 'popup-item account-row' + (a.current ? ' current' : '');
+      // blocked = manually excluded (inert, strikethrough); capped = ineligible
+      // as an auto-switch DESTINATION (red highlight, still clickable) — plugin.
+      row.className = 'popup-item account-row' + (a.current ? ' current' : '')
+        + (!a.eligible ? ' blocked' : (!a.current && (a.capped || a.timeBlocked) ? ' capped' : ''));
       const main = document.createElement('div');
       main.className = 'account-main';
       const email = document.createElement('div');
-      email.textContent = (a.current ? '● ' : '') + a.email + (a.eligible ? '' : '  ⛔');
+      if (a.current) {
+        const check = document.createElement('span');
+        check.className = 'acct-check';
+        check.textContent = '✓ ';
+        email.appendChild(check);
+      }
+      email.appendChild(document.createTextNode(a.email));
       const sub = document.createElement('div');
       sub.className = 'muted account-sub';
       sub.textContent = [a.usageLabel, a.scheduleLabel && ('blocked ' + a.scheduleLabel)].filter(Boolean).join(' · ');
@@ -769,6 +846,7 @@ async function openAccountsMenu() {
       });
       row.appendChild(acts);
       row.onclick = () => {
+        if (!a.eligible) { toast('Account disabled — re-enable it (✓) to switch.'); return; }
         closeMenu();
         if (!a.current) window.damon.switchAccount(a.email);
       };
@@ -830,20 +908,42 @@ $('btn-dashboard').onclick = async () => {
   if (r?.error) toast('Token dashboard failed: ' + r.error);
 };
 
-$('btn-export').onclick = () => openMenu($('btn-export'), (menu) => {
-  const doExport = async (mode) => {
-    const tab = activeTab();
-    const agent = agentById(tab?.agentId);
-    if (!tab || !agent || !tab.hadActivity) { toast('Nothing to export yet.'); return; }
-    const r = await window.damon.exportConversation({
-      cwd: agent.repoPath, sessionId: tab.sessionId, repoPath: agent.repoPath, mode,
-    });
-    toast(r.error ? 'Export failed: ' + r.error : 'Exported ' + r.file + ' into the agent repo.');
-    refreshDrawer();
-  };
-  menuItem(menu, 'Export last reply (.md)', () => doExport('last'));
-  menuItem(menu, 'Export whole conversation (.md)', () => doExport('full'));
-});
+// Floating export buttons (bottom-right, plugin's .cch-export-fab): save the
+// last Claude message / whole conversation as .md into the agent repo.
+async function doExport(mode) {
+  const tab = activeTab();
+  const agent = agentById(tab?.agentId);
+  if (!tab || !agent || !tab.hadActivity) { toast('Nothing to export yet.'); return; }
+  const r = await window.damon.exportConversation({
+    cwd: agent.repoPath, sessionId: tab.sessionId, repoPath: agent.repoPath, mode,
+  });
+  toast(r.error ? 'Export failed: ' + r.error : 'Exported ' + r.file + ' into the agent repo.');
+  refreshDrawer();
+}
+$('fab-export-last').onclick = () => doExport('last');
+$('fab-export-full').onclick = () => doExport('full');
+
+// Remote control: two-state toggle, plugin behavior. ON only connects (the URL
+// shows in Claude's own status bar); OFF re-runs the command and walks its menu
+// (Up ×2 + Enter) using the DECCKM-correct arrow sequence.
+function toggleRemoteControl() {
+  const tab = activeTab();
+  if (!tab || tab.ptyId == null || tab.model?.runtime === 'codex') return;
+  const w = (d) => tab.ptyId != null && window.damon.ptyWrite(tab.ptyId, d);
+  if (!tab.remoteOn) {
+    tab.remoteOn = true;
+    w('\x15/remote-control\r');
+  } else {
+    tab.remoteOn = false;
+    w('\x15/remote-control\r');
+    const up = tab.term?.modes?.applicationCursorKeysMode ? '\x1bOA' : '\x1b[A';
+    setTimeout(() => w(up), 700);
+    setTimeout(() => w(up), 850);
+    setTimeout(() => w('\r'), 1000);
+  }
+  refreshToolbar();
+}
+$('btn-remote').onclick = toggleRemoteControl;
 
 function zoomBy(d) {
   const size = Math.min(MAX_FONT, Math.max(MIN_FONT, (settings.fontSize || 14) + d));
@@ -987,18 +1087,20 @@ $('settings-dialog').addEventListener('close', () => {
 
 /* --------------------------------------------------- master view switch */
 
-function tabStateClass(tab, isActive) {
-  let c = tab.state;
-  if (tab.state === 'await' && !isActive) c += ' blink';
-  return c;
-}
+// Tab border mirrors the dot; awaiting-input blinks only when the tab is NOT
+// active (pure CSS: .tab.await.active turns the animation off).
+const TAB_STATES = ['idle', 'busy', 'await', 'limit', 'exited'];
 
 function refreshTabStatus() {
   const s = activeSession();
   if (!s) return;
   for (const tab of s.tabs) {
-    const dot = document.querySelector(`.tab[data-id="${tab.id}"] .dot`);
-    if (dot) dot.className = 'dot ' + tabStateClass(tab, tab.id === s.activeTabId);
+    const el = document.querySelector(`.tab[data-id="${tab.id}"]`);
+    if (!el) continue;
+    el.classList.remove(...TAB_STATES);
+    el.classList.add(tab.state);
+    const dot = el.querySelector('.dot');
+    if (dot) dot.className = 'dot ' + tab.state;
   }
 }
 function refreshTabTitles() {
@@ -1028,10 +1130,11 @@ function updateView() {
 
   for (const tab of s.tabs) {
     const el = document.createElement('div');
-    el.className = 'tab' + (tab.id === s.activeTabId ? ' active' : '') + (tab.pinned ? ' pinned' : '');
+    el.className = 'tab ' + tab.state + (tab.id === s.activeTabId ? ' active' : '') + (tab.pinned ? ' pinned' : '');
     el.dataset.id = tab.id;
+    el.title = (tab.pinned ? '📌 ' : '') + tab.title;
     const dot = document.createElement('span');
-    dot.className = 'dot ' + tabStateClass(tab, tab.id === s.activeTabId);
+    dot.className = 'dot ' + tab.state;
     el.appendChild(dot);
     if (tab.pinned) {
       const pin = document.createElement('span');
@@ -1300,6 +1403,7 @@ document.addEventListener('keydown', (e) => {
   if (k === 't') { e.preventDefault(); addTab(); }
   if (k === 'i') { e.preventDefault(); const t = activeTab(); if (t) renameTab(t); }
   if (k === 'w') { e.preventDefault(); const t = activeTab(); if (t) closeTab(t); }
+  if (k === 'r') { e.preventDefault(); toggleRemoteControl(); }
 });
 
 window.addEventListener('resize', () => {

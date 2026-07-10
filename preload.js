@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('damon', {
   // extras
   getPathForFile: (file) => webUtils.getPathForFile(file),
   listSkills: () => ipcRenderer.invoke('skills:list'),
+  openSkillsFolder: () => ipcRenderer.invoke('skills:open-folder'),
   clipboardImagePath: () => ipcRenderer.invoke('clipboard:image-path'),
   exportConversation: (opts) => ipcRenderer.invoke('export:conversation', opts),
   launchDashboard: () => ipcRenderer.invoke('dashboard:launch'),

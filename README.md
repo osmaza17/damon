@@ -50,20 +50,24 @@ Tabs support pinning and drag-reorder (right-click for pin/rename/close). Titles
 
 - **Model** — switches the live Claude session with `/model` (Haiku/Sonnet/Opus/Fable) and auto-confirms the prompt.
 - **Account** — the account pool. Shows the active account and its live 5h usage %. The menu lists every saved account with usage (colored), lets you switch (hot-swap, no restart — Claude picks up the new credentials on its next message), save the current account, open claude.ai in that account's browser to re-login, exclude an account from auto-switch, or delete its snapshot. Credentials are snapshotted under `~/.claude/cch-accounts/` (never committed).
-- **/skill** — inject any skill from `~/.claude/skills` into the session.
+- **/skill** — inject any skill from `~/.claude/skills` into the session (plus "Open skills folder").
+- **📱 (remote control)** — toggles `/remote-control` on the active session (Ctrl+R). Turning it off walks Claude's disconnect menu automatically.
 - **A⇄ (auto-switch)** — automatic account rotation. *Threshold* mode switches when the active account passes a fixed 5h-usage %, *rotate* switches every +Δ%. A hard 90% ceiling always applies (with a least-used fallback), and no switch ever lands on an account above 95% weekly usage. "Diagnose" explains the last decision.
 - **Tokens** — launches the bundled token-stats dashboard (Python, opens in your browser at `127.0.0.1:8080`).
-- **Export** — writes the session's last reply or whole conversation as markdown into the agent repo.
-- **− px +** — terminal font zoom (Ctrl+wheel works too).
+- **− px +** — terminal font zoom (Ctrl+wheel and Ctrl+±/0 work too).
 - **History** — recently closed sessions (max 25) across all agents; click to reopen with full conversation (`--resume`).
 - **Reload** — restarts the CLI *keeping the conversation* (same session id). **Restart** — fresh session.
 - **⚙ Settings** — extra Claude args, startup commands, font size, bell notifications, usage probe toggle, Python path, per-account **forbidden time windows** (hard-stop: Claude is interrupted and the pool jumps to another account) and per-account login browser.
 
 Open tabs are persisted: closing the app and reopening restores each agent's sessions (lazily, when you visit the agent), resuming their conversations.
 
+Two **floating buttons** at the bottom-right of the terminal save Claude's **last message** or the **whole conversation** as markdown into the agent repo.
+
 ### Terminal niceties
 
-Paste an image from the clipboard (Ctrl+V) and it lands as a `@path` mention (temp PNG). Drop a file onto the terminal for the same. Ctrl+Enter/Shift+Enter insert a newline; Ctrl+Z / Ctrl+Shift+Z are undo/redo in the Claude input.
+Paste an image from the clipboard (Ctrl+V) and it lands as a `@path` mention (temp PNG). Drop a file onto the terminal for the same. Ctrl+C copies when there is a selection (interrupt otherwise); Ctrl+Shift+C / Ctrl+Shift+V force copy / plain-text paste; right-click copies the selection or pastes. Ctrl+Enter/Shift+Enter insert a newline; Ctrl+Z / Ctrl+Shift+Z are undo/redo in the Claude input.
+
+The UI follows an Obsidian look (Border theme dark, JetBrains Mono): tabs are colored by session state (green idle · yellow working · red needs your answer / usage limit, blinking when it is a background tab).
 
 ## Account pooling — how it works
 
