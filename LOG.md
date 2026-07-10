@@ -2,6 +2,10 @@
 
 Newest first.
 
+## 2026-07-10 — Fix: el botón Cancel de los diálogos no cerraba
+
+En los diálogos New team / New agent / Settings, Cancel no hacía nada si había un campo `required` vacío ("Completa este campo"). Causa raíz: en un `<form method="dialog">` cualquier `<button>` es submit y dispara la validación HTML antes de cerrar. Fix: `formnovalidate` en los tres botones de cancelar. Verificado con Playwright (abre el diálogo con el nombre vacío, Cancel lo cierra).
+
 ## 2026-07-10 — v0.3.0: exact Obsidian (Border theme) aesthetic + feature-parity pass with the plugin
 
 **Aesthetic rebuilt to match the user's real Obsidian**: the previous approximated "Notion/Obsidian" palette was replaced by the **Border theme's `.theme-dark` variables resolved with the user's accent `#5879fd`** (h=228; values precomputed into `renderer/style.css` because xterm/CSS don't need the theme's calc() cascade) + **JetBrains Mono** as UI font (the user's `interfaceFontFamily`). All component styles (tab chips with rounded tops and state-colored borders, blink keyframes, toolbar buttons, account rows, history sidebar, day-schedule rows) are ported rule-by-rule from the plugin's `styles.css`. The terminal theme is now built like the plugin's `termTheme()`: surfaces read from the CSS variables at runtime + the plugin's ANSI palette.
